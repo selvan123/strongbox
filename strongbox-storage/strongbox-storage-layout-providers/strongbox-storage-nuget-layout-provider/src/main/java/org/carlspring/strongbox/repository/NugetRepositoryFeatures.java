@@ -1,19 +1,5 @@
 package org.carlspring.strongbox.repository;
 
-import java.io.IOException;
-import java.io.UnsupportedEncodingException;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
-import java.util.Date;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-
-import javax.inject.Inject;
-
 import org.carlspring.strongbox.artifact.ArtifactTag;
 import org.carlspring.strongbox.artifact.coordinates.NugetArtifactCoordinates;
 import org.carlspring.strongbox.client.ArtifactTransportException;
@@ -34,20 +20,26 @@ import org.carlspring.strongbox.services.ArtifactTagService;
 import org.carlspring.strongbox.storage.Storage;
 import org.carlspring.strongbox.storage.repository.Repository;
 import org.carlspring.strongbox.storage.repository.remote.RemoteRepository;
+import org.carlspring.strongbox.storage.validation.artifact.version.GenericReleaseVersionValidator;
+import org.carlspring.strongbox.storage.validation.artifact.version.GenericSnapshotVersionValidator;
 import org.carlspring.strongbox.xml.configuration.repository.NugetRepositoryConfiguration;
+
+import javax.inject.Inject;
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
-
 import ru.aristar.jnuget.Version;
 import ru.aristar.jnuget.client.NugetClient;
 import ru.aristar.jnuget.files.NugetFormatException;
-import ru.aristar.jnuget.query.AndExpression;
-import ru.aristar.jnuget.query.Expression;
-import ru.aristar.jnuget.query.IdEqIgnoreCase;
-import ru.aristar.jnuget.query.LatestVersionExpression;
-import ru.aristar.jnuget.query.VersionEq;
+import ru.aristar.jnuget.query.*;
 import ru.aristar.jnuget.rss.PackageEntry;
 import ru.aristar.jnuget.rss.PackageFeed;
 
@@ -80,10 +72,16 @@ public class NugetRepositoryFeatures
     @Inject
     private NugetLayoutProvider nugetLayoutProvider;
 
+    @Inject
+    private GenericReleaseVersionValidator nugetReleaseVersionValidator;
+
+    @Inject
+    private GenericSnapshotVersionValidator nugetSnapshotVersionValidator;
+
+
     public void downloadRemoteFeed(String storageId,
                                    String repositoryId)
-        throws RepositoryInitializationException,
-        ArtifactTransportException
+            throws ArtifactTransportException
     {
         downloadRemoteFeed(storageId, repositoryId, null, null, null);
     }
@@ -93,8 +91,7 @@ public class NugetRepositoryFeatures
                                    Expression filter,
                                    String searchTerm,
                                    String targetFramework)
-        throws RepositoryInitializationException,
-        ArtifactTransportException
+            throws ArtifactTransportException
     {
         Storage storage = getConfiguration().getStorage(storageId);
         Repository repository = storage.getRepository(repositoryId);
@@ -214,7 +211,8 @@ public class NugetRepositoryFeatures
     }
 
     @Component
-    public class RepositorySearchEventListener implements CommonEventListener<RemoteRepositorySearchEvent>
+    public class RepositorySearchEventListener
+            implements CommonEventListener<RemoteRepositorySearchEvent>
     {
 
         @Override
@@ -347,4 +345,26 @@ public class NugetRepositoryFeatures
 
         return filter;
     }
+
+    @Override
+    public Repository createRepositoryInstance(String storageId, String repositoryId)
+    {
+        Repository repository = new Repository(repositoryId);
+        repository.setStorage(configurationManager.getConfiguration().getStorage(storageId));
+        repository.setLayout(NugetLayoutProvider.ALIAS);
+        repository.setArtifactCoordinateValidators(getDefaultArtifactCoordinateValidators());
+
+        return repository;
+    }
+
+    @Override
+    public Set<String> getDefaultArtifactCoordinateValidators()
+    {
+        Set<String> validators = new LinkedHashSet<>();
+        validators.add(nugetReleaseVersionValidator.getAlias());
+        validators.add(nugetSnapshotVersionValidator.getAlias());
+
+        return validators;
+    }
+
 }

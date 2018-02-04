@@ -39,7 +39,7 @@ public class RepositoryVersionValidatorsManagementControllerTest
         Repository repository1 = new Repository("redeployment-validated-only");
         repository1.setPolicy(RepositoryPolicyEnum.RELEASE.getPolicy());
         repository1.setStorage(configurationManager.getConfiguration().getStorage(STORAGE0));
-        repository1.setVersionValidators(new HashSet<>(Arrays.asList(VersionValidatorType.REDEPLOYMENT)));
+        repository1.setArtifactCoordinateValidators(new HashSet<>(Arrays.asList(VersionValidatorType.REDEPLOYMENT)));
 
         createRepository(repository1);
 
@@ -52,7 +52,7 @@ public class RepositoryVersionValidatorsManagementControllerTest
         Repository repository3 = new Repository("single-validator-only");
         repository3.setPolicy(RepositoryPolicyEnum.RELEASE.getPolicy());
         repository3.setStorage(configurationManager.getConfiguration().getStorage(STORAGE0));
-        repository3.setVersionValidators(new HashSet<>(Arrays.asList(VersionValidatorType.REDEPLOYMENT)));
+        repository3.setArtifactCoordinateValidators(new HashSet<>(Arrays.asList(VersionValidatorType.REDEPLOYMENT)));
 
         createRepository(repository3);
     }

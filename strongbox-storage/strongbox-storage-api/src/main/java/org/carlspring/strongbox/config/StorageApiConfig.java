@@ -7,7 +7,7 @@ import org.carlspring.strongbox.domain.ArtifactEntry;
 import org.carlspring.strongbox.domain.ArtifactTagEntry;
 import org.carlspring.strongbox.domain.RemoteArtifactEntry;
 import org.carlspring.strongbox.storage.checksum.ChecksumCacheManager;
-import org.carlspring.strongbox.storage.validation.version.VersionValidator;
+import org.carlspring.strongbox.storage.validation.ArtifactCoordinatesValidator;
 
 import javax.annotation.PostConstruct;
 import javax.inject.Inject;
@@ -38,7 +38,7 @@ public class StorageApiConfig
 {
 
     @Inject
-    private List<VersionValidator> versionValidators;
+    private List<ArtifactCoordinatesValidator> versionValidators;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -112,7 +112,7 @@ public class StorageApiConfig
     }
 
     @Bean(name = "versionValidators")
-    LinkedHashSet<VersionValidator> versionValidators()
+    LinkedHashSet<ArtifactCoordinatesValidator> versionValidators()
     {
         return new LinkedHashSet<>(versionValidators);
     }

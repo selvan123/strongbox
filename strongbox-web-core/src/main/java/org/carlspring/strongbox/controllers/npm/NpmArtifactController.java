@@ -1,12 +1,21 @@
 package org.carlspring.strongbox.controllers.npm;
 
-import static org.springframework.http.HttpStatus.NOT_FOUND;
+import org.carlspring.strongbox.artifact.coordinates.NpmArtifactCoordinates;
+import org.carlspring.strongbox.controllers.BaseArtifactController;
+import org.carlspring.strongbox.npm.metadata.Package;
+import org.carlspring.strongbox.providers.ProviderImplementationException;
+import org.carlspring.strongbox.providers.io.RepositoryPath;
+import org.carlspring.strongbox.providers.layout.NpmLayoutProvider;
+import org.carlspring.strongbox.services.ArtifactManagementService;
+import org.carlspring.strongbox.storage.repository.Repository;
+import org.carlspring.strongbox.utils.ArtifactControllerHelper;
 
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.io.StringWriter;
+import javax.inject.Inject;
+import javax.servlet.ServletInputStream;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.ws.rs.core.MediaType;
+import java.io.*;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -15,45 +24,28 @@ import java.nio.file.StandardOpenOption;
 import java.security.NoSuchAlgorithmException;
 import java.util.Optional;
 
-import javax.inject.Inject;
-import javax.servlet.ServletInputStream;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.ws.rs.core.MediaType;
-
-import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
-import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
-import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
-import org.apache.commons.io.IOUtils;
-import org.carlspring.strongbox.artifact.coordinates.NpmArtifactCoordinates;
-import org.carlspring.strongbox.controllers.BaseArtifactController;
-import org.carlspring.strongbox.npm.metadata.Package;
-import org.carlspring.strongbox.providers.ProviderImplementationException;
-import org.carlspring.strongbox.providers.io.RepositoryFiles;
-import org.carlspring.strongbox.providers.io.RepositoryPath;
-import org.carlspring.strongbox.providers.layout.NpmLayoutProvider;
-import org.carlspring.strongbox.services.ArtifactManagementService;
-import org.carlspring.strongbox.storage.repository.Repository;
-import org.javatuples.Pair;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.util.Assert;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestHeader;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.RestController;
-
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
+import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
+import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
+import org.apache.commons.io.IOUtils;
+import org.javatuples.Pair;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.util.Assert;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RestController;
+import static org.springframework.http.HttpStatus.NOT_FOUND;
 
 /**
  * This Controller used to handle npm requests.
@@ -139,9 +131,10 @@ public class NpmArtifactController extends BaseArtifactController
                                  NpmArtifactCoordinates coordinates,
                                  Package packageDef,
                                  Path packageTgzTmp)
-        throws IOException,
-        ProviderImplementationException,
-        NoSuchAlgorithmException
+            throws IOException,
+                   ProviderImplementationException,
+                   NoSuchAlgorithmException,
+                   ArtifactCoordinatesValidationException
     {
         RepositoryPath repositoryPath = npmLayoutProvider.resolve(repository, coordinates);
 
@@ -204,30 +197,31 @@ public class NpmArtifactController extends BaseArtifactController
                 }
                 switch (fieldname)
                 {
-                case FIELD_NAME_VERSION:
-                    jp.nextValue();
-                    JsonNode node = jp.readValueAsTree();
-                    Assert.isTrue(node.size() == 1, "npm package source should contain only one version.");
+                    case FIELD_NAME_VERSION:
+                        jp.nextValue();
+                        JsonNode node = jp.readValueAsTree();
+                        Assert.isTrue(node.size() == 1, "npm package source should contain only one version.");
 
-                    JsonNode packageJsonNode = node.iterator().next();
-                    packageJson = extractPackageJson(packageName, packageJsonNode.toString());
+                        JsonNode packageJsonNode = node.iterator().next();
+                        packageJson = extractPackageJson(packageName, packageJsonNode.toString());
 
-                    break;
-                case FIELD_NAME_ATTACHMENTS:
-                    Assert.isTrue(jp.nextToken() == JsonToken.START_OBJECT,
-                                  String.format("Failed to parse npm package source for illegal type [%s] of attachment.",
-                                                jp.currentToken().name()));
+                        break;
+                    case FIELD_NAME_ATTACHMENTS:
+                        Assert.isTrue(jp.nextToken() == JsonToken.START_OBJECT,
+                                      String.format(
+                                              "Failed to parse npm package source for illegal type [%s] of attachment.",
+                                              jp.currentToken().name()));
 
-                    String packageAttachmentName = jp.nextFieldName();
-                    logger.info(String.format("Found npm package attachment [%s]", packageAttachmentName));
+                        String packageAttachmentName = jp.nextFieldName();
+                        logger.info(String.format("Found npm package attachment [%s]", packageAttachmentName));
 
-                    moveToAttachment(jp, packageAttachmentName);
-                    packageTgzPath = extractPackage(jp);
+                        moveToAttachment(jp, packageAttachmentName);
+                        packageTgzPath = extractPackage(jp);
 
-                    jp.nextToken();
-                    jp.nextToken();
+                        jp.nextToken();
+                        jp.nextToken();
 
-                    break;
+                        break;
                 }
             }
         }
