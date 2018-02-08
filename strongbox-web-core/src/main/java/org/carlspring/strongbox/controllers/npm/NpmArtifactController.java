@@ -4,11 +4,12 @@ import org.carlspring.strongbox.artifact.coordinates.NpmArtifactCoordinates;
 import org.carlspring.strongbox.controllers.BaseArtifactController;
 import org.carlspring.strongbox.npm.metadata.Package;
 import org.carlspring.strongbox.providers.ProviderImplementationException;
+import org.carlspring.strongbox.providers.io.RepositoryFiles;
 import org.carlspring.strongbox.providers.io.RepositoryPath;
 import org.carlspring.strongbox.providers.layout.NpmLayoutProvider;
 import org.carlspring.strongbox.services.ArtifactManagementService;
 import org.carlspring.strongbox.storage.repository.Repository;
-import org.carlspring.strongbox.utils.ArtifactControllerHelper;
+import org.carlspring.strongbox.storage.validation.artifact.ArtifactCoordinatesValidationException;
 
 import javax.inject.Inject;
 import javax.servlet.ServletInputStream;
@@ -38,14 +39,11 @@ import org.javatuples.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.util.Assert;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.RestController;
-import static org.springframework.http.HttpStatus.NOT_FOUND;
+import org.springframework.web.bind.annotation.*;
 
 /**
  * This Controller used to handle npm requests.

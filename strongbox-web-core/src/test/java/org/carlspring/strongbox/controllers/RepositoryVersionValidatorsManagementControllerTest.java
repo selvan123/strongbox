@@ -1,15 +1,14 @@
 package org.carlspring.strongbox.controllers;
 
-import org.carlspring.strongbox.configuration.ConfigurationManager;
 import org.carlspring.strongbox.config.IntegrationTest;
+import org.carlspring.strongbox.configuration.ConfigurationManager;
+import org.carlspring.strongbox.providers.layout.Maven2LayoutProvider;
 import org.carlspring.strongbox.rest.common.MavenRestAssuredBaseTest;
 import org.carlspring.strongbox.storage.repository.Repository;
 import org.carlspring.strongbox.storage.repository.RepositoryPolicyEnum;
 import org.carlspring.strongbox.storage.repository.VersionValidatorType;
 
 import javax.inject.Inject;
-import java.util.Arrays;
-import java.util.HashSet;
 
 import io.restassured.module.mockmvc.RestAssuredMockMvc;
 import org.junit.Test;
@@ -30,6 +29,10 @@ public class RepositoryVersionValidatorsManagementControllerTest
     @Inject
     private ConfigurationManager configurationManager;
 
+    @Inject
+    private Maven2LayoutProvider maven2LayoutProvider;
+
+
     @Override
     public void init()
             throws Exception
@@ -39,7 +42,7 @@ public class RepositoryVersionValidatorsManagementControllerTest
         Repository repository1 = new Repository("redeployment-validated-only");
         repository1.setPolicy(RepositoryPolicyEnum.RELEASE.getPolicy());
         repository1.setStorage(configurationManager.getConfiguration().getStorage(STORAGE0));
-        repository1.setArtifactCoordinateValidators(new HashSet<>(Arrays.asList(VersionValidatorType.REDEPLOYMENT)));
+        repository1.setArtifactCoordinateValidators(maven2LayoutProvider.getDefaultArtifactCoordinateValidators());
 
         createRepository(repository1);
 
@@ -52,7 +55,7 @@ public class RepositoryVersionValidatorsManagementControllerTest
         Repository repository3 = new Repository("single-validator-only");
         repository3.setPolicy(RepositoryPolicyEnum.RELEASE.getPolicy());
         repository3.setStorage(configurationManager.getConfiguration().getStorage(STORAGE0));
-        repository3.setArtifactCoordinateValidators(new HashSet<>(Arrays.asList(VersionValidatorType.REDEPLOYMENT)));
+        repository3.getArtifactCoordinateValidators().add(VersionValidatorType.REDEPLOYMENT.name());
 
         createRepository(repository3);
     }
